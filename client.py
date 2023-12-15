@@ -1,3 +1,6 @@
+import sys
+import base64
+import json
 import socket
 from util_json import enviar_json
 
@@ -22,33 +25,44 @@ def recuperar_arquivo(conexao, nome_arquivo):
         arquivo.write(dados)
 
 
-def main():
-    cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    cliente.connect(("localhost", 12345))
+def main(user_id):
+    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    connection.connect(("localhost", 12345))
 
     while True:
-        modo = input("Escolha o modo (deposito/recuperacao/sair): ")
-        nome_arquivo = input("Digite o nome do arquivo: ")
+        # modo = input("Escolha o modo (deposito/recuperacao/sair): ")
+        modo = "deposito"
+        # number_of_replicas = input("Numero de replicas:")
+        number_of_replicas = 1
+        # file_name = input("Digite o nome do arquivo: ")
+        file_name = "some.txt"
 
         if modo == "deposito":
-            with open(nome_arquivo, "rb") as arquivo:
-                conteudo = arquivo.read()
-            dados = {
-                "modo": "deposito",
-                "nome_arquivo": nome_arquivo,
-                "conteudo": conteudo,
-            }
-            enviar_json(cliente, dados)
+            with open(file_name, "rb") as arquivo:
+                file_content = arquivo.read()
+            dados = json.dumps(
+                {
+                    "type": "store_file",
+                    "user_id": user_id,
+                    "file_name": file_name,
+                    "file_content": file_content.decode("utf8"),
+                    "number_of_replicas": number_of_replicas,
+                }
+            )
+            print(dados)
+            connection.send(dados.encode("utf-8"))
+            break
 
         elif modo == "recuperacao":
-            dados = {"modo": "recuperacao", "nome_arquivo": nome_arquivo}
-            enviar_json(cliente, dados)
+            dados = {"modo": "recuperacao", "nome_arquivo": file_name}
+            enviar_json(connection, dados)
 
         elif modo == "sair":
             break
 
-    cliente.close()
+    connection.close()
 
 
 if __name__ == "__main__":
-    main()
+    # main(sys.argv[1])
+    main("dib")

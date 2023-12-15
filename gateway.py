@@ -1,43 +1,71 @@
+import threading
 import socket
 from typing import Dict
-from messages import BucketSubscribeMessage, ClientGetFile
 import json
 
 
 class Gateway:
-    connection: socket.socket
-    buckets: Dict[str, BucketSubscribeMessage] = {}
+    buckets: Dict[str, socket.socket] = {}
 
     def __init__(self):
-        gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        gateway_socket.bind(("localhost", 12345))
-        gateway_socket.listen(5)
-        print(f"Servidor pronto para conexões. em {gateway_socket.getsockname()}")
-
+        self.buckets = {}
+        self.gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.gateway_socket.bind(("localhost", 12345))
+        self.gateway_socket.listen(8)
+        print(f"Servidor pronto para conexões em {self.gateway_socket.getsockname()}")
         while True:
-            self.connection, address = gateway_socket.accept()
-            data = json.loads(self.connection.recv(1024).decode("utf-8"))
-            match data:
-                case {"type": "subscribe_bucket"}:
-                    bucket = BucketSubscribeMessage(address=address, bucket_id=data["bucket_id"])
-                    print(f"{address} Subscribing as bucket | bucket_id: {bucket.bucket_id}")
-                    self.buckets[bucket.bucket_id] = bucket
-                    self.OK()
-                case {"type": "subscribe_client"}:
-                    client = ClientGetFile(address=address, user_id=data["user_id"])
-                    print(f"{address} Subscribing as client | user_id: {client.user_id}")
-                    self.OK()
-                case _:
-                    print("Invalid message")
-                    self.ERROR()
+            connection, address = self.gateway_socket.accept()
+            client_thread = threading.Thread(target=self.handle_client, args=(connection, address))
+            client_thread.start()
 
-            self.connection.close()
+    def handle_client(self, connection, address):
+        while True:
+            try:
+                response = connection.recv(1024).decode("utf-8")
+                print(f"Recebido: {response}")
+                if not response:
+                    break  # Encerra o loop se não houver dados (conexão fechada)
 
-    def OK(self):
-        self.connection.send("OK".encode("utf-8"))
+                match json.loads(response):
+                    case {"type": "subscribe_bucket", "bucket_id": bucket_id}:
+                        print(f"{address} conectado como bucket | bucket_id: {bucket_id}")
+                        self.buckets[bucket_id] = connection
+                        # Print the number of current threads
+                    case {
+                        "type": "store_file",
+                        "user_id": user_id,
+                        "file_name": file_name,
+                        "file_content": file_content,
+                        "number_of_replicas": _number_of_replicas,
+                    }:
+                        buckets = list(self.buckets.values())
+                        # Max of replicas should be the number of buckets
+                        picked_buckets = buckets[: min(_number_of_replicas, len(buckets))]
+                        for bucket in picked_buckets:
+                            bucket.send(
+                                json.dumps(
+                                    {
+                                        "type": "store_file",
+                                        "user_id": user_id,
+                                        "file_name": file_name,
+                                        "file_content": file_content,
+                                    }
+                                ).encode("utf-8")
+                            )
+                        connection.send("OK".encode("utf-8"))
+                    case _:
+                        print("Mensagem inválida")
+                        self.send_error(connection)
+            except json.JSONDecodeError:
+                print("Erro ao decodificar JSON")
+                break
+        connection.close()
 
-    def ERROR(self):
-        self.connection.send("ERROR".encode("utf-8"))
+    def send_ok(self, connection: socket.socket):
+        connection.send("OK".encode("utf-8"))
+
+    def send_error(self, connection: socket.socket):
+        connection.send("ERROR".encode("utf-8"))
 
 
 if __name__ == "__main__":

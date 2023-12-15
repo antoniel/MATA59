@@ -20,7 +20,7 @@ class BucketSubscribeMessage(Message):
         self.bucket_id = bucket_id
 
 
-# echo '{}' | nc localhost 12345
+# echo '{"type":"subscribe_client", "user_id": "u1"}' | nc localhost 12345
 class ClientGetFile(Message):
     user_id: str
 
