@@ -1,4 +1,5 @@
 import socket
+import sys
 import json
 import os
 from utils import print_info, CommunicationManager
@@ -12,8 +13,11 @@ class Main(CommunicationManager):
         connection.connect(("localhost", 12345))
 
         while True:
-            modo = input("Escolha o modo (deposito/recuperacao/sair): ")
-            number_of_replicas = int(input("Numero de replicas:"))
+            modo = input("Escolha o modo (deposito/recuperacao/ajustar_replicas/sair): ")
+
+            number_of_replicas = 0
+            if modo != "recuperacao":
+                number_of_replicas = int(input("Digite o número de réplicas: "))
             file_name = input("Digite o nome do arquivo: ")
 
             match modo:
@@ -86,5 +90,5 @@ class Main(CommunicationManager):
 
 
 if __name__ == "__main__":
-    # main(sys.argv[1])
-    Main("tony")
+    Main(sys.argv[1])
+    # Main("tony")
