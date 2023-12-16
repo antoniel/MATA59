@@ -12,12 +12,9 @@ class Main(CommunicationManager):
         connection.connect(("localhost", 12345))
 
         while True:
-            # modo = input("Escolha o modo (deposito/recuperacao/sair): ")
-            modo = "ajustar_replicas"
-            # number_of_replicas = input("Numero de replicas:")
-            number_of_replicas = 1
-            # file_name = input("Digite o nome do arquivo: ")
-            file_name = "some.txt"
+            modo = input("Escolha o modo (deposito/recuperacao/sair): ")
+            number_of_replicas = int(input("Numero de replicas:"))
+            file_name = input("Digite o nome do arquivo: ")
 
             match modo:
                 case "deposito":
