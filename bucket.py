@@ -1,12 +1,13 @@
 import json
-import sys
 import os
 import socket
-from messages import BucketSubscribeMessage
+from utils import print_info, print_receive, send_print, CommunicationManager
 
 
-class Bucket:
+class Bucket(CommunicationManager):
     def __init__(self, bucket_id: str):
+        # super serviceName
+        super().__init__("Bucket 📦")
         self.bucket_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.bucket_socket.connect(("localhost", 12345))
         self.bucket_id = bucket_id
@@ -15,22 +16,27 @@ class Bucket:
 
     def connect_with_gateway(self):
         while True:
-            self.bucket_socket.send(
-                BucketSubscribeMessage(bucket_id=self.bucket_id, address=self.bucket_socket.getsockname()).encode()
-            )
-            response = json.loads(self.bucket_socket.recv(1024).decode("utf-8"))
-            print(f"Recebido: {response}")
+            self.send_message(self.bucket_socket, {"type": "subscribe_bucket", "bucket_id": self.bucket_id}, "gateway")
+            response = self.bucket_socket.recv(1024).decode("utf-8")
+            print_receive(f"Recebido: {response}")
+
+            if not response:
+                break
+
+            response = json.loads(response)
             match response:
-                case {
-                    "type": "store_file",
-                    "user_id": user_id,
-                    "file_name": file_name,
-                    "file_content": file_content,
-                    "number_of_replicas": _number_of_replicas,
-                }:
+                case {"type": "store_file", "user_id": user_id, "file_name": file_name, "file_content": file_content}:
                     self.store_file(user_id, file_name, file_content.encode("utf-8"))
                 case {"type": "retrieve_file", "user_id": user_id, "file_name": file_name}:
-                    self.retrieve_file(user_id, file_name)
+                    print_info(f"Enviando arquivo {file_name} para o usuário {user_id}...")
+                    file_content = self.retrieve_file(user_id, file_name)
+
+                    data = {"type": "retrieve_file_response", "user_id": user_id, "file_name": file_name, "file_content": file_content}
+                    send_print(f"Enviando: {data}")
+                    json_response = json.dumps(data)
+                    self.bucket_socket.send(json_response.encode("utf-8"))
+                case {"type": "OK"}:
+                    print_receive(response)
                 case _:
                     print("Mensagem inválida")
 
@@ -40,16 +46,16 @@ class Bucket:
         file_path = os.path.join(directory_path, file_name)
         with open(file_path, "wb") as file:
             file.write(file_content)
-        print(f"User: {user_id} Armazenou arquivo {file_name} com sucesso.")
+        print_info(f"User: {user_id} Armazenou arquivo {file_name} com sucesso.")
 
     def retrieve_file(self, user_id: str, file_name: str) -> bytes:
         file_path = f"store/{self.bucket_id}/{user_id}/{file_name}"
         if os.path.exists(file_path):
             with open(file_path, "rb") as file:
-                print(f"Recuperando arquivo {file_name} para o usuário {user_id}...")
-                return file.read()
+                print_info(f"Recuperando arquivo {file_name} para o usuário {user_id}...")
+                return file.read().decode("utf-8")
         else:
-            print(f"Arquivo {file_name} não encontrado.")
+            print_info(f"Arquivo {file_name} não encontrado.")
             return b""
 
     def list_users(self):
@@ -59,9 +65,10 @@ class Bucket:
             # Listar todos os subdiretórios no diretório do bucket
             return [name for name in os.listdir(bucket_path) if os.path.isdir(os.path.join(bucket_path, name))]
         except FileNotFoundError:
-            print(f"Nenhum dado encontrado para o bucket {self.bucket_id}")
+            print_info(f"Nenhum dado encontrado para o bucket {self.bucket_id}")
             return []
 
 
 if __name__ == "__main__":
-    Bucket(sys.argv[1])
+    # Bucket(sys.argv[1])
+    Bucket("s3")
