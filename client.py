@@ -6,16 +6,16 @@ from utils import print_info, CommunicationManager
 
 class Main(CommunicationManager):
     def __init__(self, user_id: str):
-        super().__init__(f"Client 📱: {user_id}")
+        super().__init__(f"Client: {user_id}")
         self.user_id = user_id
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection.connect(("localhost", 12345))
 
         while True:
             # modo = input("Escolha o modo (deposito/recuperacao/sair): ")
-            modo = "recuperacao"
+            modo = "ajustar_replicas"
             # number_of_replicas = input("Numero de replicas:")
-            number_of_replicas = 2
+            number_of_replicas = 1
             # file_name = input("Digite o nome do arquivo: ")
             file_name = "some.txt"
 
@@ -27,6 +27,11 @@ class Main(CommunicationManager):
                 case "recuperacao":
                     self.handle_recuperacao(user_id, connection, file_name)
                     break  # REMOVERDEPOIS
+
+                case "ajustar_replicas":
+                    self.handle_ajustar_replicas(connection, file_name, number_of_replicas)
+                    break
+
                 case "sair":
                     print("Saindo...")
                     break
@@ -62,10 +67,21 @@ class Main(CommunicationManager):
             "number_of_replicas": number_of_replicas,
         }
         self.send_message(connection, dados, "gateway")
+        self.receive_messages(connection)
 
     def handle_ajustar_replicas(self, connection, file_name, number_of_replicas):
-        dados = {"type": "adjust_replicas", "file_name": file_name, "number_of_replicas": number_of_replicas}
+        dados = {"type": "adjust_replicas", "file_name": file_name, "number_of_replicas": number_of_replicas, "user_id": self.user_id}
         self.send_message(connection, dados, "gateway")
+        response = self.receive_messages(connection)
+        match response:
+            case {
+                "type": "OK",
+            }:
+                print_info("Réplicas ajustadas")
+            case {"type": "ERROR", "message": message}:
+                print_info(f"Erro ao ajustar réplicas: {message}")
+            case _:
+                print_info("Mensagem inválida")
 
     def disconnect(self, connection: socket.socket):
         self.send_message(connection, {"type": "client_disconnected", "user_id": self.user_id}, "gateway")
@@ -74,4 +90,4 @@ class Main(CommunicationManager):
 
 if __name__ == "__main__":
     # main(sys.argv[1])
-    Main("dib")
+    Main("tony")

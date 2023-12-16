@@ -1,6 +1,8 @@
 import socket
+import time
 import json
 from typing import Union, List, Dict, Any
+import threading
 
 DEBUG = True
 INFO = True
@@ -40,13 +42,14 @@ class CommunicationManager:
     def send_message(self, connection: socket.socket, message: dict, to: str):
         message["From"] = self.service_name
         message["To"] = to
-        _send_print(f"Enviando: {message}")
+        _send_print(f"{str(threading.get_ident())[-2:]} | Enviando: {message}")
         connection.send((json.dumps(message) + "\n").encode("utf-8"))
 
     def receive_messages(self, connection: socket.socket) -> List[Union[None, Dict[str, Any]]]:
+        time.sleep(0.1)
         response = connection.recv(1024).decode("utf-8")
 
-        _print_receive(f"Recebido: {response}")
+        _print_receive(f"{str(threading.get_ident())[-2:]} | Recebido: {response}")
         if not response:
             return [None]
 
